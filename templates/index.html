@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>CFO Helper - Multi-Model AI Analysis</title>
+    <style>
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            margin: 0; 
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+        }
+        textarea { 
+            width: 100%; 
+            margin: 15px 0; 
+            padding: 15px; 
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 16px;
+            font-family: inherit;
+            resize: vertical;
+        }
+        button { 
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 15px 30px; 
+            font-size: 18px;
+            border-radius: 8px;
+            cursor: pointer;
+            display: block;
+            margin: 20px auto;
+            transition: transform 0.2s;
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+        .results-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-top: 30px;
+        }
+        .result-section {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            border: 1px solid #e9ecef;
+        }
+        .result-section h3 {
+            margin-top: 0;
+            color: #495057;
+            border-bottom: 2px solid #dee2e6;
+            padding-bottom: 10px;
+        }
+        .model-response {
+            margin: 15px 0;
+            padding: 15px;
+            background: white;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .model-header {
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: between;
+            align-items: center;
+        }
+        .model-time {
+            font-size: 0.8em;
+            color: #666;
+            margin-left: auto;
+        }
+        .model-status {
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 0.7em;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+        .status-success {
+            background: #d4edda;
+            color: #155724;
+        }
+        .status-error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .loading {
+            text-align: center;
+            color: #666;
+            padding: 20px;
+        }
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        @media (max-width: 768px) {
+            .results-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏢 CFO Helper - Multi-Model AI Analysis</h1>
+        <textarea id="scenario" rows="4" placeholder="Enter your business scenario here... (e.g., 'If I hire 3 more engineers and spend ₹60,000 extra on marketing and raise product price by 20%, what happens?')"></textarea>
+        <button onclick="submitScenario()">🚀 Analyze with All AI Models</button>
+
+        <div class="results-grid">
+            <div class="result-section">
+                <h3>💰 Numerical Insights</h3>
+                <div id="insights">
+                    <p>💡 Enter a scenario above to see financial projections</p>
+                </div>
+            </div>
+
+            <div class="result-section">
+                <h3>🤖 AI Model Comparisons</h3>
+                <div id="llm-results">
+                    <p>🎯 Enter a scenario to see responses from multiple AI models</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function submitScenario() {
+            const scenario = document.getElementById("scenario").value;
+            
+            if (!scenario.trim()) {
+                alert("Please enter a scenario first!");
+                return;
+            }
+
+            // Show loading state
+            document.getElementById("insights").innerHTML = '<div class="loading"><div class="spinner"></div>Calculating financial projections...</div>';
+            document.getElementById("llm-results").innerHTML = '<div class="loading"><div class="spinner"></div>Getting responses from all AI models...</div>';
+
+            try {
+                const response = await fetch("/forecast", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ scenario })
+                });
+
+                const data = await response.json();
+                
+                // Update numerical insights
+                document.getElementById("insights").innerHTML = `
+                    <p><strong>💵 Revenue:</strong> ₹${data.insights.scenario.revenue.toLocaleString()}</p>
+                    <p><strong>💸 Expenses:</strong> ₹${data.insights.scenario.expenses.toLocaleString()}</p>
+                    <p><strong>📊 Net Profit:</strong> ₹${data.insights.scenario.net.toLocaleString()}</p>
+                    <p><strong>⏱️ Calculation Time:</strong> ${data.insights.timing.calculation_time.toFixed(3)}s</p>
+                `;
+
+                // Update LLM results
+                let llmHtml = '';
+                if (data.llm_responses && typeof data.llm_responses === 'object') {
+                    for (const [modelName, modelData] of Object.entries(data.llm_responses)) {
+                        const statusClass = modelData.status === 'success' ? 'status-success' : 'status-error';
+                        const icon = modelData.status === 'success' ? '✅' : '❌';
+                        
+                        llmHtml += `
+                            <div class="model-response">
+                                <div class="model-header">
+                                    <span>${getModelIcon(modelName)} ${modelName}</span>
+                                    <span class="model-time">${modelData.time.toFixed(2)}s</span>
+                                    <span class="model-status ${statusClass}">${icon} ${modelData.status}</span>
+                                </div>
+                                <div class="model-content">${modelData.response}</div>
+                            </div>
+                        `;
+                    }
+                } else {
+                    llmHtml = `<div class="model-response"><div class="model-content">${data.llm_response || 'No AI responses available'}</div></div>`;
+                }
+                
+                document.getElementById("llm-results").innerHTML = llmHtml;
+
+            } catch (error) {
+                console.error('Error:', error);
+                document.getElementById("insights").innerHTML = '<p style="color: red;">❌ Error calculating insights</p>';
+                document.getElementById("llm-results").innerHTML = '<p style="color: red;">❌ Error getting AI responses</p>';
+            }
+        }
+
+        function getModelIcon(modelName) {
+            const icons = {
+                'OpenAI': '🧠',
+                'Cohere': '🚀', 
+                'HuggingFace': '🤗',
+                'LiteLLM': '⚡'
+            };
+            return icons[modelName] || '🤖';
+        }
+
+        // Allow Enter key to submit
+        document.getElementById("scenario").addEventListener("keypress", function(event) {
+            if (event.key === "Enter" && event.ctrlKey) {
+                submitScenario();
+            }
+        });
+    </script>
+</body>
+</html>
