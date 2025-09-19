@@ -13,57 +13,16 @@ import {
   PieChart
 } from 'lucide-react';
 import { useFinancial } from '../../contexts/FinancialContext';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart as RechartsPieChart, Cell } from 'recharts';
-
-interface RevenueStream {
-  id: string;
-  name: string;
-  type: 'subscription' | 'one-time' | 'usage-based' | 'commission';
-  monthlyRevenue: number;
-  customers: number;
-  averageValue: number;
-  growthRate: number;
-  color: string;
-}
+import { useRevenueStreams } from '../../hooks/useRevenueStreams';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart as RechartsPieChart, Pie, Cell } from 'recharts';
+import { RevenueStream } from '../../types';
 
 const RevenuePage: React.FC = () => {
   const { financialData, updateFinancialData } = useFinancial();
+  const { revenueStreams, addRevenueStream, updateRevenueStream, deleteRevenueStream, loading, error } = useRevenueStreams();
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedTimeframe, setSelectedTimeframe] = useState('12months');
   
-  const [revenueStreams, setRevenueStreams] = useState<RevenueStream[]>([
-    {
-      id: '1',
-      name: 'SaaS Subscriptions',
-      type: 'subscription',
-      monthlyRevenue: 35000,
-      customers: 450,
-      averageValue: 78,
-      growthRate: 12,
-      color: '#3B82F6'
-    },
-    {
-      id: '2',
-      name: 'Professional Services',
-      type: 'one-time',
-      monthlyRevenue: 12000,
-      customers: 8,
-      averageValue: 1500,
-      growthRate: 8,
-      color: '#10B981'
-    },
-    {
-      id: '3',
-      name: 'API Usage',
-      type: 'usage-based',
-      monthlyRevenue: 3000,
-      customers: 120,
-      averageValue: 25,
-      growthRate: 25,
-      color: '#F59E0B'
-    }
-  ]);
-
   const [newStream, setNewStream] = useState({
     name: '',
     type: 'subscription' as const,
@@ -117,36 +76,51 @@ const RevenuePage: React.FC = () => {
 
   const historicalData = generateHistoricalData();
 
-  const addRevenueStream = () => {
-    const stream: RevenueStream = {
-      id: Date.now().toString(),
-      ...newStream
-    };
+  const handleAddRevenueStream = async () => {
+    // Basic validation
+    if (!newStream.name.trim()) {
+      alert('Please enter a revenue stream name');
+      return;
+    }
     
-    const updatedStreams = [...revenueStreams, stream];
-    setRevenueStreams(updatedStreams);
-    
-    const newTotalRevenue = updatedStreams.reduce((sum, s) => sum + s.monthlyRevenue, 0);
-    updateFinancialData({ monthlyRevenue: newTotalRevenue });
-    
-    setNewStream({
-      name: '',
-      type: 'subscription',
-      monthlyRevenue: 0,
-      customers: 0,
-      averageValue: 0,
-      growthRate: 0,
-      color: '#8B5CF6'
-    });
-    setShowAddModal(false);
+    if (newStream.monthlyRevenue <= 0) {
+      alert('Monthly revenue must be greater than 0');
+      return;
+    }
+
+    try {
+      await addRevenueStream(newStream);
+      
+      const newTotalRevenue = [...revenueStreams, newStream].reduce((sum, s) => sum + s.monthlyRevenue, 0);
+      updateFinancialData({ monthlyRevenue: newTotalRevenue });
+      
+      setNewStream({
+        name: '',
+        type: 'subscription',
+        monthlyRevenue: 0,
+        customers: 0,
+        averageValue: 0,
+        growthRate: 0,
+        color: '#8B5CF6'
+      });
+      setShowAddModal(false);
+      alert('Revenue stream added successfully!');
+    } catch (error) {
+      console.error('Failed to add revenue stream:', error);
+      alert('Failed to add revenue stream. Please try again.');
+    }
   };
 
-  const deleteStream = (id: string) => {
-    const updatedStreams = revenueStreams.filter(s => s.id !== id);
-    setRevenueStreams(updatedStreams);
-    
-    const newTotalRevenue = updatedStreams.reduce((sum, s) => sum + s.monthlyRevenue, 0);
-    updateFinancialData({ monthlyRevenue: newTotalRevenue });
+  const handleDeleteStream = async (id: string) => {
+    try {
+      await deleteRevenueStream(id);
+      
+      const updatedStreams = revenueStreams.filter(s => s.id !== id);
+      const newTotalRevenue = updatedStreams.reduce((sum, s) => sum + s.monthlyRevenue, 0);
+      updateFinancialData({ monthlyRevenue: newTotalRevenue });
+    } catch (error) {
+      console.error('Failed to delete revenue stream:', error);
+    }
   };
 
   const revenueTargets = [
@@ -331,13 +305,17 @@ const RevenuePage: React.FC = () => {
             <ResponsiveContainer width="100%" height="100%">
               <RechartsPieChart>
                 <Pie
-                  data={revenueStreams}
+                  data={revenueStreams.map(stream => ({
+                    name: stream.name,
+                    value: stream.monthlyRevenue,
+                    fill: stream.color
+                  }))}
                   cx="50%"
                   cy="50%"
                   outerRadius={100}
                   fill="#8884d8"
-                  dataKey="monthlyRevenue"
-                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                  dataKey="value"
+                  label={({ name, percent }: any) => `${name} ${(percent * 100).toFixed(0)}%`}
                   labelLine={false}
                 >
                   {revenueStreams.map((entry, index) => (
@@ -420,7 +398,7 @@ const RevenuePage: React.FC = () => {
                         <Edit3 className="w-4 h-4" />
                       </button>
                       <button
-                        onClick={() => deleteStream(stream.id)}
+                        onClick={() => handleDeleteStream(stream.id)}
                         className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -528,7 +506,7 @@ const RevenuePage: React.FC = () => {
             </div>
             <div className="flex space-x-3 mt-6">
               <button
-                onClick={addRevenueStream}
+                onClick={handleAddRevenueStream}
                 className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg font-medium"
               >
                 Add Stream

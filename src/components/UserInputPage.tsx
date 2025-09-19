@@ -3,14 +3,15 @@ import { motion } from 'framer-motion';
 import { 
   DollarSign, 
   Users, 
-  TrendingUp, 
   Building, 
   Target,
   ArrowRight,
-  CheckCircle,
+  Check,
   AlertCircle
 } from 'lucide-react';
 import { useFinancial } from '../contexts/FinancialContext';
+import { useAuth } from '../contexts/AuthContext';
+import { DatabaseService } from '../lib/database';
 
 interface UserInputPageProps {
   onComplete: () => void;
@@ -18,7 +19,9 @@ interface UserInputPageProps {
 
 const UserInputPage: React.FC<UserInputPageProps> = ({ onComplete }) => {
   const { updateFinancialData } = useFinancial();
+  const { user } = useAuth();
   const [currentStep, setCurrentStep] = useState(0);
+  const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState({
     // Company Info
     companyName: '',
@@ -93,22 +96,50 @@ const UserInputPage: React.FC<UserInputPageProps> = ({ onComplete }) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (currentStep < steps.length - 1) {
       setCurrentStep(currentStep + 1);
     } else {
       // Final step - save data and complete onboarding
-      updateFinancialData({
-        currentCash: formData.currentCash,
-        monthlyRevenue: formData.monthlyRevenue,
-        monthlyExpenses: formData.monthlyExpenses,
-        growthRate: formData.growthRate,
-        teamSize: formData.teamSize,
-        averageSalary: formData.averageSalary,
-        marketingBudget: formData.marketingBudget,
-        operationalExpenses: formData.operationalExpenses
-      });
-      onComplete();
+      setSaving(true);
+      try {
+        // Save financial data
+        const financialData = {
+          currentCash: formData.currentCash,
+          monthlyRevenue: formData.monthlyRevenue,
+          monthlyExpenses: formData.monthlyExpenses,
+          growthRate: formData.growthRate,
+          teamSize: formData.teamSize,
+          averageSalary: formData.averageSalary,
+          marketingBudget: formData.marketingBudget,
+          operationalExpenses: formData.operationalExpenses
+        };
+        
+        await updateFinancialData(financialData);
+
+        // Save user profile if user is logged in
+        if (user) {
+          const userProfile = {
+            name: user.displayName || user.email?.split('@')[0] || 'User',
+            email: user.email || '',
+            phone: '',
+            role: 'Founder',
+            companyName: formData.companyName,
+            companySize: formData.teamSize.toString(),
+            industry: formData.industry
+          };
+          
+          await DatabaseService.saveUserProfile(user.uid, userProfile);
+        }
+        
+        onComplete();
+      } catch (error) {
+        console.error('Error saving onboarding data:', error);
+        // Still complete onboarding even if save fails
+        onComplete();
+      } finally {
+        setSaving(false);
+      }
     }
   };
 
@@ -397,7 +428,7 @@ const UserInputPage: React.FC<UserInputPageProps> = ({ onComplete }) => {
 
             <div className="p-6 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
               <div className="flex items-center space-x-2 mb-4">
-                <CheckCircle className="w-6 h-6 text-green-600 dark:text-green-400" />
+                <Check className="w-6 h-6 text-green-600 dark:text-green-400" />
                 <h4 className="font-semibold text-green-800 dark:text-green-200">Setup Summary</h4>
               </div>
               <div className="grid grid-cols-2 gap-4 text-sm">
@@ -485,17 +516,23 @@ const UserInputPage: React.FC<UserInputPageProps> = ({ onComplete }) => {
 
             <motion.button
               onClick={handleNext}
-              disabled={!isStepValid()}
-              whileHover={{ scale: !isStepValid() ? 1 : 1.02 }}
-              whileTap={{ scale: !isStepValid() ? 1 : 0.98 }}
+              disabled={!isStepValid() || saving}
+              whileHover={{ scale: (!isStepValid() || saving) ? 1 : 1.02 }}
+              whileTap={{ scale: (!isStepValid() || saving) ? 1 : 0.98 }}
               className={`px-6 py-3 rounded-lg font-medium flex items-center space-x-2 transition-colors ${
-                !isStepValid()
+                (!isStepValid() || saving)
                   ? 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed'
                   : 'bg-blue-600 hover:bg-blue-700 text-white'
               }`}
             >
-              <span>{currentStep === steps.length - 1 ? 'Complete Setup' : 'Next'}</span>
-              <ArrowRight className="w-4 h-4" />
+              <span>
+                {saving ? 'Saving...' : currentStep === steps.length - 1 ? 'Complete Setup' : 'Next'}
+              </span>
+              {saving ? (
+                <div className="animate-spin w-4 h-4 border-2 border-current border-t-transparent rounded-full" />
+              ) : (
+                <ArrowRight className="w-4 h-4" />
+              )}
             </motion.button>
           </div>
         </div>

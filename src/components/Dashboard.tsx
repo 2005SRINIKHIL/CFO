@@ -55,7 +55,7 @@ const Dashboard: React.FC = () => {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
-      className="p-6 space-y-6"
+      className="min-h-screen bg-gray-50 dark:bg-gray-900 p-6 space-y-6"
     >
       {/* Header */}
       <div className="flex justify-between items-center">

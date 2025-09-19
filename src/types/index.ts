@@ -36,3 +36,36 @@ export interface UsageMetrics {
   reportsGenerated: number;
   lastActive: Date;
 }
+
+export interface RevenueStream {
+  id: string;
+  name: string;
+  type: 'subscription' | 'one-time' | 'usage-based' | 'commission';
+  monthlyRevenue: number;
+  customers: number;
+  averageValue: number;
+  growthRate: number;
+  color: string;
+}
+
+export interface TeamMember {
+  id: string;
+  name: string;
+  role: string;
+  department: string;
+  salary: number;
+  startDate: Date;
+  equity?: number;
+  status: 'active' | 'inactive';
+}
+
+export interface UserSettings {
+  currency: string;
+  timezone: string;
+  notifications: {
+    email: boolean;
+    dashboard: boolean;
+    reports: boolean;
+  };
+  theme: 'light' | 'dark' | 'auto';
+}

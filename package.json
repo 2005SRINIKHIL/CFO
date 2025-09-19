@@ -12,6 +12,7 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.57.4",
     "@types/react-router-dom": "^5.3.3",
+    "firebase": "^12.3.0",
     "framer-motion": "^12.23.15",
     "html2canvas": "^1.4.1",
     "jspdf": "^3.0.3",

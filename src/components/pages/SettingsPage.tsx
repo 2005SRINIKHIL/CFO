@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { 
   User, 
@@ -21,6 +21,7 @@ import {
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useFinancial } from '../../contexts/FinancialContext';
+import { DatabaseService } from '../../lib/database';
 
 const SettingsPage: React.FC = () => {
   const { user, signOut } = useAuth();
@@ -29,6 +30,8 @@ const SettingsPage: React.FC = () => {
   
   const [activeTab, setActiveTab] = useState('profile');
   const [showPassword, setShowPassword] = useState(false);
+  const [userProfile, setUserProfile] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [notifications, setNotifications] = useState({
     email: true,
     push: false,
@@ -38,13 +41,64 @@ const SettingsPage: React.FC = () => {
   });
 
   const [profile, setProfile] = useState({
-    fullName: user?.user_metadata?.full_name || 'John Doe',
-    email: user?.email || 'john@example.com',
-    phone: '+1 (555) 123-4567',
-    company: 'Acme Startup Inc.',
-    role: 'CEO',
+    fullName: '',
+    email: user?.email || '',
+    phone: '',
+    company: '',
+    role: '',
     timezone: 'America/New_York'
   });
+
+  // Load user profile data on component mount
+  useEffect(() => {
+    const loadUserProfile = async () => {
+      if (user) {
+        try {
+          const profileData = await DatabaseService.getUserProfile(user.uid);
+          if (profileData) {
+            setUserProfile(profileData);
+            setProfile({
+              fullName: profileData.name || '',
+              email: profileData.email || user.email || '',
+              phone: profileData.phone || '',
+              company: profileData.companyName || '',
+              role: profileData.role || '',
+              timezone: 'America/New_York'
+            });
+          }
+        } catch (error) {
+          console.error('Error loading user profile:', error);
+        }
+      }
+      setIsLoading(false);
+    };
+
+    loadUserProfile();
+  }, [user]);
+
+  const handleSaveProfile = async () => {
+    if (!user) return;
+    
+    try {
+      const updatedProfile = {
+        name: profile.fullName,
+        email: profile.email,
+        phone: profile.phone,
+        companyName: profile.company,
+        role: profile.role,
+        // Keep existing fields
+        companySize: userProfile?.companySize || '',
+        industry: userProfile?.industry || ''
+      };
+      
+      await DatabaseService.saveUserProfile(user.uid, updatedProfile);
+      setUserProfile(updatedProfile);
+      alert('Profile updated successfully!');
+    } catch (error) {
+      console.error('Error saving profile:', error);
+      alert('Failed to save profile. Please try again.');
+    }
+  };
 
   const tabs = [
     { id: 'profile', name: 'Profile', icon: User },
@@ -54,11 +108,6 @@ const SettingsPage: React.FC = () => {
     { id: 'data', name: 'Data & Privacy', icon: Database },
     { id: 'billing', name: 'Billing', icon: CreditCard }
   ];
-
-  const handleSaveProfile = () => {
-    // In a real app, this would save to the backend
-    console.log('Saving profile:', profile);
-  };
 
   const handleExportData = () => {
     const data = {
